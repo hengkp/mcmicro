@@ -1,3 +1,7 @@
+### 2022-04-25
+
+* [ASHLAR] Output OME-TIFF files now conform to the [official OME-TIFF pyramid specification](https://docs.openmicroscopy.org/ome-model/6.0.0/ome-tiff/specification.html#sub-resolutions).
+
 ### 2022-04-22
 
 * By default, MCMICRO was copying `qc/*` files from work directories to the project directory. This was creating unnecessary duplication of potentially large files. The new `--qc-files` option allows users to `copy`, `move` or `symlink` all QC files, providing more flexibility. Example:
