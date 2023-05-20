@@ -1,0 +1,53 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/hengkp/mcmicro/master/nextflow_schema.json",
+    "title": "hengkp/mcmicro pipeline parameters",
+    "description": "Multiple-choice microscopy pipeline",
+    "type": "object",
+    "definitions": {
+        "workflow_options": {
+            "title": "Workflow options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "required": ["in"],
+            "properties": {
+                "in": {
+                    "type": "string",
+                    "fa_icon": "fas fa-folder-open",
+                    "format": "directory-path",
+                    "description": "The output directory where the results will be saved",
+                    "help_text": "You have to use absolute paths to storage on Cloud infrastructure"
+                },
+                "start-at": {
+                    "type": "string",
+                    "fa_icon": "fas fa-map-signs",
+                    "default": "registration",
+                    "enum": ["illumination", "registration", "background", "dearray", "segmentation", "watershed", "quantification", "downstream"],
+                    "description": "Name of the first step to be executed by the pipeline.",
+                    "help_text": "Valid values: illumination, registration, background (background only), dearray (TMA only), segmentation, watershed, quantification, downstream"
+                },
+                "stop-at": {
+                    "type": "string",
+                    "fa_icon": "fas fa-map-signs",
+                    "default": "quantification",
+                    "enum": ["illumination", "registration", "background", "dearray", "segmentation", "watershed", "quantification", "downstream"],
+                    "description": "Name of the final step to be executed by the pipeline",
+                    "help_text": "Valid values: illumination, registration, background (background only), dearray (TMA only), segmentation, watershed, quantification, downstream"
+                },
+                "viz": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-eye",
+                    "default": false,
+                    "description": "Whether to generate a vizualization with Auto-Minerva",
+                    "help_text": "Valid values: true, false"
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/definitions/workflow_options"
+        }
+    ]
+}
