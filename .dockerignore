@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Config and test files
+.kiro/
+tests/
+config/
+setup/
+
+# Nextflow files
+*.nf
+nextflow.config
+nextflow_schema.json
+
+# Environment
+env/
+.gitpod.yml
+
+# Build artifacts
+*.pyc
+__pycache__/

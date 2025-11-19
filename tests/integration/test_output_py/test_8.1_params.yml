@@ -1,0 +1,6 @@
+options:
+  palom: --level 0 --ref-index 0
+workflow:
+  registration-engine: palom
+  start-at: registration
+  stop-at: registration

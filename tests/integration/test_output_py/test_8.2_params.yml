@@ -1,0 +1,5 @@
+options:
+  ashlar: -m 30
+workflow:
+  start-at: registration
+  stop-at: registration

@@ -1,0 +1,27 @@
+name: nextflow
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # Nextflow and Java runtime
+  - nextflow >=23.04
+  - openjdk >=11
+  
+  # Python and core scientific libraries
+  - python >=3.9
+  - numpy
+  - scipy
+  - scikit-image
+  - tifffile
+  - zarr
+  
+  # PALOM registration dependencies
+  - pip
+  - pip:
+      - palom
+      - ome-types
+  
+  # Optional: useful tools for pipeline development
+  - pandas
+  - matplotlib

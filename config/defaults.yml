@@ -7,11 +7,13 @@ workflow:
   background: false
   multi-formats: '{.xdce,.nd,.scan,.htd}'
   single-formats: '{.ome.tiff,.ome.tif,.rcpnl,.btf,.nd2,.tif,.czi}'
+  registration-engine: ashlar
   segmentation: unmicst
   segmentation-recyze: false
   downstream: scimap
 options:
   ashlar: -m 30
+  palom: --level 0 --ref-index 0
   cypository: --model zeisscyto
   ilastik: --num_channels 1
   mcquant: --masks cell*.tif
@@ -25,6 +27,10 @@ modules:
     name: ashlar
     container: labsyspharm/ashlar
     version: 1.17.0
+  registration-palom:
+    name: palom
+    container: labsyspharm/palom-mcmicro
+    version: 1.0.0
   dearray:
     name: coreograph
     container: labsyspharm/unetcoreograph

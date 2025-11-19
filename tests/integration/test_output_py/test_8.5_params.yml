@@ -1,0 +1,4 @@
+options:
+  palom: --ref-index 1 --cycle-channels "0:0,1;1:0,2" --compression lzw
+workflow:
+  registration-engine: palom

@@ -7,6 +7,7 @@ workflow:
   - viz
   - multi-formats
   - single-formats
+  - registration-engine
   - segmentation
   - segmentation-channel
   - segmentation-recyze
