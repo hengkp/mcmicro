@@ -1,6 +1,6 @@
 import mcmicro.*
 
-process palom_align {
+process palom {
     container "${params.contPfx}${module.container}:${module.version}"
     publishDir "${params.in}/registration", mode: 'copy', pattern: '*.ome.tif'
     
@@ -17,6 +17,7 @@ process palom_align {
       val lrelPath    // Use this for paths
       path lffp
       path ldfp
+      path markers    // markers.csv file
 
     output:
       path "*.ome.tif", emit: img
@@ -29,15 +30,17 @@ process palom_align {
     def imgs = lrelPath.collect{ Util.escapeForShell(it) }.join(" ")
     def opts = Opts.moduleOpts(module, mcp)
     def outputName = Util.escapeForShell("${sampleName}.ome.tif")
+    def markersOpt = markers.name != 'NO_FILE' ? "--markers ${markers}" : ""
     """
     # Create working directories
     mkdir -p ome_cycles registration
     
-    # Run PALOM registration
-    python /usr/local/bin/register_akoya_palom.py \\
+    # Run PALOM registration (v2 - memory-efficient)
+    python /usr/local/bin/register_akoya_palom_v2.py \\
       --input-dir . \\
       --pattern "*.{ome.tiff,ome.tif}" \\
       --output ${outputName} \\
+      ${markersOpt} \\
       ${opts}
     
     # Record versions
@@ -101,19 +104,24 @@ workflow registration {
         error "Unknown registration engine: ${engine}. Valid options: ashlar, palom"
       }
       
+      // Look for markers.csv
+      def markersFile = file("${params.in}/markers.csv")
+      def markers = markersFile.exists() ? markersFile : file('NO_FILE')
+      
       // Execute the selected registration engine
       if (engine == 'palom') {
         // Use PALOM module specification
-        palom_align(
+        palom(
           mcp,
           mcp.modules['registration-palom'],
           sampleName,
           rawst.first(),
           rawst.last(),
           ffp.toSortedList{a, b -> a.getName() <=> b.getName()},
-          dfp.toSortedList{a, b -> a.getName() <=> b.getName()}
+          dfp.toSortedList{a, b -> a.getName() <=> b.getName()},
+          markers
         )
-        registered = palom_align.out.img
+        registered = palom.out.img
       } else {
         // Use ASHLAR (default)
         ashlar(
