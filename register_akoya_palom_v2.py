@@ -319,6 +319,13 @@ def main():
         print("\nStep 3: Writing pyramidal OME-TIFF using palom.pyramid.write_pyramid()...")
         print("  (Data will be loaded tile-by-tile as needed)")
         out_path = Path(args.output)
+        
+        # Sanitize filename: replace spaces with underscores to avoid downstream issues
+        if ' ' in out_path.name:
+            sanitized_name = out_path.name.replace(' ', '_')
+            out_path = out_path.parent / sanitized_name
+            print(f"  Note: Sanitized filename (spaces -> underscores): {out_path.name}")
+        
         out_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Calculate expected pyramid levels
