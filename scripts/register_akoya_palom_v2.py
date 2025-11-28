@@ -23,6 +23,7 @@ import dask.array as da
 import os
 import gc
 import shutil
+import warnings
 from typing import List, Tuple
 
 
@@ -340,16 +341,25 @@ def main():
         print(f"  Tile size: {args.tile_size}")
         print(f"  Compression: {args.compression}")
         
-        # Use palom's write_pyramid - it will read tiles on-demand!
-        # This is the same approach ASHLAR uses for large files
-        palom.pyramid.write_pyramid(
-            [mosaic_dask],  # Lazy dask array - loads tiles as needed
-            str(out_path),
-            pixel_size=pixel_size,
-            downscale_factor=2,
-            compression=args.compression if args.compression != "none" else None,
-            tile_size=args.tile_size,
-        )
+        # Configure dask to handle chunk size warnings gracefully
+        # Set chunk-size to accommodate the Zarr array chunks used internally by palom
+        dask.config.set({"array.chunk-size": "512KB"})
+        
+        # Suppress PerformanceWarning about rechunking - it's expected for pyramid levels
+        # that don't align perfectly with tile sizes
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=da.core.PerformanceWarning)
+            
+            # Use palom's write_pyramid - it will read tiles on-demand!
+            # This is the same approach ASHLAR uses for large files
+            palom.pyramid.write_pyramid(
+                [mosaic_dask],  # Lazy dask array - loads tiles as needed
+                str(out_path),
+                pixel_size=pixel_size,
+                downscale_factor=2,
+                compression=args.compression if args.compression != "none" else None,
+                tile_size=args.tile_size,
+            )
         
         # Clean up
         del mosaic_dask, channel_arrays

@@ -30,7 +30,7 @@ modules:
   registration-palom:
     name: palom
     container: hengkp/palom
-    version: 1.0.2
+    version: 1.0.3
   dearray:
     name: coreograph
     container: labsyspharm/unetcoreograph

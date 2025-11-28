@@ -19,9 +19,9 @@ RUN conda install -y -c conda-forge \
 # Install palom via pip
 RUN pip install --no-cache-dir "palom[all]"
 
-# Copy registration scripts (v2 is memory-efficient version)
+# Copy registration script (consolidated memory-efficient version with chunking fix)
 COPY register_akoya_palom.py /usr/local/bin/register_akoya_palom.py
-COPY register_akoya_palom_v2.py /usr/local/bin/register_akoya_palom_v2.py
+COPY register_akoya_palom.py /usr/local/bin/register_akoya_palom_v2.py
 RUN chmod +x /usr/local/bin/register_akoya_palom.py /usr/local/bin/register_akoya_palom_v2.py
 
 # Set working directory
