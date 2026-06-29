@@ -4,7 +4,7 @@
 set -e
 
 REGISTRY="hengkp/palom"
-VERSION="1.0.8"
+VERSION="1.0.2"
 
 echo "=========================================="
 echo "PALOM Container Build & Push"

@@ -20,3 +20,5 @@ Gemfile.lock
 
 */.obsidian/
 .kiro/*
+
+.ipynb_checkpoints/
