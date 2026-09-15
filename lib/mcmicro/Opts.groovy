@@ -90,12 +90,20 @@ static def cleanParams(pars, mspecs) {
     def keywords = ['in', 'cont-pfx', 'roadie', 'workflow',
         'options', 'modules', 'params']
 
+    // Nextflow 26.04 hands every hyphenated name to the script as camelCase only:
+    // `--start-at background` and `"start-at": "background"` in a -params-file both
+    // arrive here as startAt, and nothing named start-at exists any more. The old filter
+    // kept hyphenated keys and dropped the rest, so every workflow parameter was silently
+    // ignored and the defaults ran instead (SiSP AppHub, 15 Sep 2026: a background-only
+    // run started at registration and died on a missing raw/ folder). Fold every key back
+    // to its hyphenated form first; a Nextflow that still supplies both spellings collapses
+    // them onto one entry.
+    Map folded = [:]
+    pars.each{ key, val -> folded[Opts.camel2snake(key)] = val }
+
     // Clean up the parameter list
     // Separate workflow parameters from module options
-    pars.findAll{ key, val ->
-        Opts.camel2snake(key) == key &&
-        !keywords.contains(key)
-    }.each{ key, val ->
+    folded.findAll{ key, val -> !keywords.contains(key) }.each{ key, val ->
         String keyc = key.replaceAll( /-opts$/, '' )
         if(names.contains(keyc))
             options[keyc] = val

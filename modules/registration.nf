@@ -35,8 +35,11 @@ process palom {
     # Create working directories
     mkdir -p ome_cycles registration
     
-    # Run PALOM registration (v2 - memory-efficient)
-    python /usr/local/bin/register_akoya_palom_v2.py \\
+    # Run PALOM registration (v2 - memory-efficient). The script comes from this
+    # pipeline's bin/, which Nextflow mounts into the container, so a fix to it ships
+    # with the pipeline instead of waiting for a new hengkp/palom image. The full path
+    # is spelled out because the image's own /usr/local/bin copy comes first on PATH.
+    python "${projectDir}/bin/register_akoya_palom_v2.py" \\
       --input-dir . \\
       --pattern "*.{ome.tiff,ome.tif}" \\
       --output ${outputName} \\
