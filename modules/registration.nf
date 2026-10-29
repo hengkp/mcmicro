@@ -2,6 +2,7 @@ import mcmicro.*
 
 process palom {
     container "${params.contPfx}${module.container}:${module.version}"
+    cpus 4
     publishDir "${params.in}/registration", mode: 'copy', pattern: '*.ome.tif'
     
     // Provenance

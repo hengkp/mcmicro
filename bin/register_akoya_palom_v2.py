@@ -25,8 +25,12 @@ import dask.array as da
 import os
 import gc
 import shutil
+import time
 import warnings
 from typing import List, Tuple
+
+
+DEFAULT_BLOCK_SIZE = 512
 
 
 def parse_args():
@@ -42,13 +46,17 @@ def parse_args():
     p.add_argument("--ref-channel", type=int, default=0, help="Channel index in reference for registration. Default: 0.")
     p.add_argument("--moving-channel", type=int, default=0, help="Channel index in moving for registration. Default: 0.")
     p.add_argument("--level", type=int, default=0, help="Pyramid level for registration/output (0=full-res). Default: 0.")
+    p.add_argument("--block-size", type=int, default=DEFAULT_BLOCK_SIZE, help=f"Registration block size in pixels; 0 keeps the input file's own tile size (lazy, the old behaviour). Default: {DEFAULT_BLOCK_SIZE}.")
     p.add_argument("--thumbnail-size", type=int, default=2000, help="Thumbnail size for coarse alignment. Default: 2000.")
     p.add_argument("--cycle-channels", type=str, default=None, help="Per-cycle channel selection. Format: '0:0,1;1:0,2'.")
     p.add_argument("--max-pyramid-levels", type=int, default=5, help="Maximum pyramid levels. Default: 5.")
     p.add_argument("--min-size-for-next-level", type=int, default=512, help="Min size to continue pyramid. Default: 512.")
     p.add_argument("--tile-size", type=int, default=512, help="Tile size for TIFF. Default: 512.")
     p.add_argument("--compression", type=str, default="zlib", choices=["none", "zlib", "lzw"], help="TIFF compression. Default: zlib.")
-    return p.parse_args()
+    args = p.parse_args()
+    if args.block_size < 0:
+        p.error("--block-size must be >= 0 (0 keeps the input file's own tile size).")
+    return args
 
 
 def parse_cycle_channels(spec: str, n_files: int):
@@ -190,6 +198,13 @@ def main():
 
     # Registration channels
     ref_reg_level = ref_reader.read_level_channels(level, args.ref_channel)
+    if args.block_size > 0:
+        # Materialize first so the registration graph no longer contains tile reads.
+        ref_np = ref_reg_level.compute()
+        ref_reg_level = da.from_array(ref_np, chunks=(args.block_size, args.block_size), name=False)
+        del ref_np
+        grid_rows, grid_cols = ref_reg_level.numblocks
+        print(f"Registration blocks: {grid_rows} x {grid_cols} ({grid_rows * grid_cols} blocks of {args.block_size} px)", flush=True)
     ref_reg_thumb = ref_reader.read_level_channels(thumb_level, args.ref_channel).compute()
 
     # Determine channels to keep from reference
@@ -266,6 +281,10 @@ def main():
         mov_reader = palom.reader.OmePyramidReader(str(path))
 
         mov_reg_level = mov_reader.read_level_channels(level, args.moving_channel)
+        if args.block_size > 0:
+            mov_np = mov_reg_level.compute()
+            mov_reg_level = da.from_array(mov_np, chunks=(args.block_size, args.block_size), name=False)
+            del mov_np
         mov_reg_thumb = mov_reader.read_level_channels(thumb_level, args.moving_channel).compute()
 
         aligner = palom.align.Aligner(
@@ -285,6 +304,11 @@ def main():
         except Exception as e:
             print(f"  WARNING: constrain_shifts failed. Proceeding with unconstrained shifts. Error: {repr(e)}")
 
+        # Warping uses only the shifts and affine matrix from the aligner.
+        del mov_reg_level
+        aligner.moving_img = None
+        gc.collect()
+
         keep_chans = cycle_channel_map.get(idx, None)
         mov_full_da = mov_reader.read_level_channels(level, slice(None))
         n_mov_channels = mov_full_da.shape[0]
@@ -299,12 +323,15 @@ def main():
         # Transform and save channels immediately
         for local_ch_idx in channels_to_process:
             print(f"  Channel {global_channel_idx + 1}...", end=" ", flush=True)
-            channel_da = mov_reader.read_level_channels(level, local_ch_idx)
+            channel_start = time.monotonic()
+            moving_np = mov_reader.read_level_channels(level, local_ch_idx)
+            if args.block_size > 0:
+                moving_np = moving_np.compute()
             
-            # Apply transformation
+            # Materialize the source first to avoid nested dask computes per block.
             channel_da = palom.align.block_affine_transformed_moving_img(
                 ref_img=ref_reg_level,
-                moving_img=channel_da,
+                moving_img=moving_np,
                 mxs=aligner.block_affine_matrices_da,
             )
             
@@ -312,20 +339,20 @@ def main():
             temp_file = os.path.join(temp_dir, f"ch_{global_channel_idx:03d}.npy")
             np.save(temp_file, channel_np)
             temp_channel_files.append(temp_file)
-            print("saved")
+            print(f"saved ({time.monotonic() - channel_start:.0f} s)", flush=True)
             global_channel_idx += 1
             
             # Report progress (5% to 65% range for channel processing)
             progress = 5 + int((global_channel_idx / total_channels_estimate) * 60)
             report_progress(progress, 100, f"Processing channel {global_channel_idx}/{total_channels_estimate}")
             
-            del channel_da, channel_np
+            del channel_da, channel_np, moving_np
             gc.collect()
         
         print(f"  Alignment complete for cycle {idx}")
         
         # Aggressive cleanup to free memory
-        del mov_reader, mov_reg_level, mov_reg_thumb, aligner, mov_full_da
+        del mov_reader, mov_reg_thumb, aligner, mov_full_da
         gc.collect()
 
     # Clean up reference registration data
