@@ -28,6 +28,13 @@ modules:
 
 All other settings match the official MCMICRO defaults, so you can modify any parameter as needed.
 
+In this fork, an active registration stage automatically switches PALOM to ASHLAR
+with a warning when discovered raw inputs include non-OME-TIFF files (such as
+`.rcpnl`) or use a multi-file format. OME-TIFF-only inputs keep PALOM. An active
+background subtraction stage is skipped with a warning if `markers.csv` lacks
+`background`, or lacks `exposure` while any `background` value is non-empty;
+`remove` is optional. Both adjustments are recorded in `qc/params.yml`.
+
 ## Full Example
 
 ```bash

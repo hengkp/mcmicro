@@ -59,6 +59,52 @@ findFiles = { key, pattern, ife -> pre[key] ?
 (formatType, formatPattern) =
     file("${params.in}/raw/**${wfp['multi-formats']}") ?
     ["multi", wfp['multi-formats']] : ["single", wfp['single-formats']]
+
+// PALOM only accepts OME-TIFF; use ASHLAR for other discovered raw formats.
+if(Flow.doirun('registration', wfp) && wfp['registration-engine'] == 'palom') {
+    def matches = file("${params.in}/raw/**${formatPattern}")
+    def rawPaths = matches instanceof List ? matches : (matches ? [matches] : [])
+    def nonOmeNames = rawPaths.collect{ it.name.toLowerCase(Locale.ROOT) }.findAll{
+        !(it.endsWith('.ome.tif') || it.endsWith('.ome.tiff'))
+    }
+    if(rawPaths && (formatType == 'multi' || nonOmeNames)) {
+        def extensions = nonOmeNames.collect{ name ->
+            def dot = name.lastIndexOf('.')
+            dot >= 0 ? name.substring(dot) : '(no extension)'
+        }.unique().sort().join(', ')
+        def reason = nonOmeNames ? "raw/ holds ${extensions} files" :
+            'raw/ uses a multi-file format'
+        wfp['registration-engine'] = 'ashlar'
+        log.warn "palom reads OME-TIFF only; ${reason}, so registration uses ashlar instead. Set registration-engine: ashlar to silence this."
+    }
+}
+
+// Split CSV at commas outside quotes, preserving empty and trailing cells.
+def csvFields = { line ->
+    line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/, -1).collect{
+        it.trim().replaceAll(/^"|"$/, '').replace('""', '"').trim()
+    }
+}
+if(wfp.background && Flow.doirun('background', wfp)) {
+    def markersFile = file("${params.in}/markers.csv")
+    if(markersFile.exists()) {
+        def rows = markersFile.readLines()
+        def header = rows ? csvFields(rows[0]) : []
+        def backgroundColumn = header.indexOf('background')
+        if(backgroundColumn < 0) {
+            wfp.background = false
+            log.warn "markers.csv has no 'background' column, so background subtraction is skipped. Add 'background' (the channel to subtract) and 'exposure' columns to run it."
+        }
+        else if(!header.contains('exposure') && rows.drop(1).any{ row ->
+            def fields = csvFields(row)
+            fields.size() > backgroundColumn && fields[backgroundColumn] != ''
+        }) {
+            wfp.background = false
+            log.warn "markers.csv has non-empty 'background' values but no 'exposure' column, so background subtraction is skipped. Add 'exposure' (the exposure time for each channel) to run it."
+        }
+    }
+}
+
 rawFiles = findFiles('raw', "**${formatPattern}",
 		     {error "No images found in ${params.in}/raw"})
 
