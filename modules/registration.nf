@@ -85,7 +85,7 @@ process ashlar {
     def ilp = "--ffp $lffp --dfp $ldfp"
     if (ilp == '--ffp  --dfp ') ilp = ''  // Don't supply empty --ffp --dfp
     """
-    ashlar $imgs ${Opts.moduleOpts(module, mcp)} $ilp -o ${sampleName}.ome.tif
+    ashlar $imgs ${Opts.moduleOpts(module, mcp)} $ilp -o ${Util.escapeForShell(Util.cleanFilename(sampleName) + '.ome.tif')}
     """
 }
 

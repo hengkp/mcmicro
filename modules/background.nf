@@ -50,7 +50,7 @@ process backsub {
     // The command must write all outputs to the current working directory (.)
     // Opts.moduleOpts() will identify and return the appropriate module options
     """
-    python3 /background_subtraction/background_sub.py -o ${sampleName+'_backsub'}.ome.tif -mo ./markers_bs.csv -r $image -m $marker ${Opts.moduleOpts(module, mcp)}
+    python3 /background_subtraction/background_sub.py -o ${Util.escapeForShell(sampleName+'_backsub.ome.tif')} -mo ./markers_bs.csv -r $image -m $marker ${Opts.moduleOpts(module, mcp)}
     """
 }
 workflow background {
@@ -63,7 +63,10 @@ workflow background {
   main:
     // run the backsub process with the mcmicro parameters, module value
     // markers path and pre-registered image path
-    sampleName = file(params.in).name
+    // A project folder may contain spaces ("Skin 1"). palom already writes
+    // Skin_1.ome.tif, so the backsub output follows the same rule
+    // (Skin_1_backsub.ome.tif) instead of splitting into two shell words.
+    sampleName = Util.cleanFilename(file(params.in).name)
     backsub(mcp, mcp.modules['background'], marker, image, sampleName)
     
     // Return the outputs produced by the tool
