@@ -29,6 +29,8 @@ import time
 import warnings
 from typing import List, Tuple
 
+from label_channels import label_channels, read_markers
+
 
 DEFAULT_BLOCK_SIZE = 512
 
@@ -77,74 +79,6 @@ def parse_cycle_channels(spec: str, n_files: int):
             raise ValueError(f"No channels specified for cycle {idx} in --cycle-channels.")
         mapping[idx] = chans
     return mapping
-
-
-def channel_color(index, name=""):
-    """OME Color (signed 32-bit RGBA) for channel `index`, in the order QuPath would have
-    chosen itself: red, green, blue, yellow, cyan, magenta, then hues around the wheel.
-    Downstream tools that round-trip the metadata (backsub, via ome-types) fill a missing
-    Color with white, which is why the colour is written here rather than left to the viewer."""
-    fixed = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255), (255, 0, 255)]
-    if index < len(fixed):
-        r, g, b = fixed[index]
-    else:
-        import colorsys
-        hue = (((index - len(fixed)) * 60 + 30) % 360) / 360.0
-        r, g, b = (int(round(c * 255)) for c in colorsys.hsv_to_rgb(hue, 1.0, 1.0))
-    value = (r << 24) | (g << 16) | (b << 8) | 255
-    return value - (1 << 32) if value >= (1 << 31) else value
-
-
-def label_channels(path, marker_names, sample_name=None):
-    """Rewrite the OME-XML so each Channel carries a Name and a Color, and the Image carries
-    the sample name instead of palom's "Image0". Names are what markers.csv said; if there
-    were none, the channels are still coloured so a viewer does not show them all in white."""
-    import xml.etree.ElementTree as ET
-    try:
-        xml = tifffile.tiffcomment(str(path))
-        root = ET.fromstring(xml)
-        ns = root.tag.split("}")[0].strip("{")
-        ET.register_namespace("", ns)
-        images = root.findall(f"{{{ns}}}Image")
-        for image in images:
-            if sample_name:
-                image.set("Name", sample_name)
-            pixels = image.find(f"{{{ns}}}Pixels")
-            channels = pixels.findall(f"{{{ns}}}Channel") if pixels is not None else []
-            for i, channel in enumerate(channels):
-                if marker_names and i < len(marker_names):
-                    channel.set("Name", str(marker_names[i]))
-                channel.set("Color", str(channel_color(i, channel.get("Name", ""))))
-        # As bytes: the OME-XML carries "µm", and tifffile refuses a str that is not 7-bit ASCII.
-        tifffile.tiffcomment(str(path), ET.tostring(root, encoding="utf-8", xml_declaration=True))
-        print(f"  Channel metadata: {len(channels)} channels named and coloured")
-    except Exception as e:  # metadata is a courtesy; the pixels are already on disk
-        print(f"Warning: could not label channels: {e}")
-
-
-def load_marker_names(markers_path, n_channels):
-    """Load marker names from markers.csv if it exists."""
-    if markers_path is None or not Path(markers_path).exists():
-        return [f"Channel_{i}" for i in range(n_channels)]
-    
-    try:
-        import csv
-        marker_names = []
-        with open(markers_path, 'r') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                name = row.get('marker_name') or row.get('marker') or row.get('name') or row.get('channel_name')
-                if name:
-                    marker_names.append(name)
-        
-        if len(marker_names) == n_channels:
-            return marker_names
-        else:
-            print(f"Warning: markers.csv has {len(marker_names)} entries but expected {n_channels}. Using default names.")
-            return [f"Channel_{i}" for i in range(n_channels)]
-    except Exception as e:
-        print(f"Warning: Could not read markers.csv: {e}. Using default names.")
-        return [f"Channel_{i}" for i in range(n_channels)]
 
 
 def report_progress(current, total, stage=""):
@@ -367,7 +301,13 @@ def main():
     try:
         # Step 1: Load marker names
         print("\nStep 1: Loading marker names...")
-        marker_names = load_marker_names(args.markers, total_channels)
+        marker_names = [f"Channel_{i}" for i in range(total_channels)]
+        marker_colors = [None] * total_channels
+        if args.markers is not None and Path(args.markers).exists():
+            try:
+                marker_names, marker_colors = read_markers(args.markers)
+            except Exception as e:
+                print(f"Warning: Could not read markers.csv: {e}. Using default names.")
         report_progress(67, 100, "Loading marker names")
         
         # Step 2: Create dask array directly from individual channel files
@@ -512,7 +452,7 @@ def main():
         # registration, and every backsub made from it, opened in QuPath as "Channel 1..n"
         # in white. palom's own channel_names would suffix them (DAPI1_1), so the names and
         # colours go into the OME-XML afterwards.
-        label_channels(out_path, marker_names, sample_name=out_path.name.split(".ome")[0])
+        label_channels(out_path, marker_names, marker_colors, sample_name=out_path.name.split(".ome")[0])
         
         # Clean up
         del mosaic_dask, channel_arrays, channel_arrays_expanded

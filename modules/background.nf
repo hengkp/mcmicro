@@ -51,6 +51,7 @@ process backsub {
     // Opts.moduleOpts() will identify and return the appropriate module options
     """
     python3 /background_subtraction/background_sub.py -o ${Util.escapeForShell(sampleName+'_backsub.ome.tif')} -mo ./markers_bs.csv -r $image -m $marker ${Opts.moduleOpts(module, mcp)}
+    python3 "${projectDir}/bin/label_channels.py" --image ${Util.escapeForShell(sampleName+'_backsub.ome.tif')} --markers markers_bs.csv
     """
 }
 workflow background {

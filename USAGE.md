@@ -35,6 +35,28 @@ background subtraction stage is skipped with a warning if `markers.csv` lacks
 `background`, or lacks `exposure` while any `background` value is non-empty;
 `remove` is optional. Both adjustments are recorded in `qc/params.yml`.
 
+## Channel display colours
+
+Add an optional `color` column (or `colour`) to the project's `markers.csv` to
+choose channel colours in PALOM registration and background-subtracted OME-TIFFs,
+including the image opened in QuPath. Accepted values are `#RRGGBB`, `RRGGBB`, or
+`red`, `green`, `blue`, `yellow`, `cyan`, `magenta`, `white`, `gray`, `grey`,
+`orange`, `purple`, `pink`. Case and surrounding whitespace are ignored. Invalid
+values stop the workflow at launch, even when background subtraction is off.
+
+An explicit colour overrides the defaults. With an empty or absent colour,
+names starting with DAPI or Hoechst get blue; other channels use red, green,
+yellow, cyan, magenta, then hues around the wheel, skipping pure blue. Only
+channels using this palette advance it.
+
+```csv
+cycle,marker_name,background,exposure,remove,color
+1,DAPI1,,100,FALSE,
+1,CD3,,100,FALSE,#00FF00
+1,CD20,,100,FALSE,magenta
+1,PanCK,,100,FALSE,
+```
+
 ## Full Example
 
 ```bash

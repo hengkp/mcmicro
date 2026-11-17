@@ -85,6 +85,33 @@ def csvFields = { line ->
         it.trim().replaceAll(/^"|"$/, '').replace('""', '"').trim()
     }
 }
+
+// Validate display colours at launch, even when background subtraction is off.
+def colorMarkersFile = file("${params.in}/markers.csv")
+if(colorMarkersFile.exists()) {
+    def rows = colorMarkersFile.readLines()
+    def header = rows ? csvFields(rows[0]) : []
+    def colorColumns = ['color', 'colour'].collect{ header.indexOf(it) }.findAll{ it >= 0 }
+    def colorNames = ['red', 'green', 'blue', 'yellow', 'cyan', 'magenta',
+                      'white', 'gray', 'grey', 'orange', 'purple', 'pink']
+    def markerColumns = ['marker_name', 'marker', 'name', 'channel_name']
+        .collect{ header.indexOf(it) }.findAll{ it >= 0 }
+    if(colorColumns) {
+        rows.drop(1).eachWithIndex{ row, index ->
+            def fields = csvFields(row)
+            colorColumns.each{ column ->
+                def value = column < fields.size() ? fields[column] : ''
+                if(value && !(value ==~ /#?[0-9a-fA-F]{6}/) &&
+                   !colorNames.contains(value.toLowerCase(Locale.ROOT))) {
+                    def marker = markerColumns.collect{ it < fields.size() ? fields[it] : '' }
+                        .find{ it } ?: "row ${index + 2}"
+                    error "Invalid color '${value}' for marker '${marker}' in markers.csv (row ${index + 2}). Accepted forms: #RRGGBB, RRGGBB, or ${colorNames.join(', ')} (case-insensitive, surrounding whitespace ignored)."
+                }
+            }
+        }
+    }
+}
+
 if(wfp.background && Flow.doirun('background', wfp)) {
     def markersFile = file("${params.in}/markers.csv")
     if(markersFile.exists()) {
